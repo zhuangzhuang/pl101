@@ -1,14 +1,23 @@
 
 
-type Tag = 'note' | 'seq' | 'par'
+type Tag = 'note' | 'seq' | 'par' | 'rest' | 'repeat'
 
 interface IMusic {
     tag: Tag
+    //seq|par
     left?: IMusic
     right?:  IMusic
     
+    //note
     pitch?: string
     dur?: number
+
+    //rest:
+    duration?: number
+
+    //repeat
+    section?: IMusic
+    count?: number
 }
 
 
@@ -63,31 +72,41 @@ interface ILinearMusic {
 
 // http://nathansuniversity.com/music3.html
 // http://nathansuniversity.com/music6.html
+// http://nathansuniversity.com/music14.html
 
 function compile(musxpr: IMusic): Array<ILinearMusic>{
     function innerCompile(expr: IMusic, time: number, res: Array<ILinearMusic>) {
         if(!expr){
             return 0;
         }
-        var tag = expr.tag;
+        var tag = expr.tag, t1, t2;
         if(tag === 'note'){
             var new_expr = {
                 tag: 'note',
                 pitch: expr.pitch,
                 start: time,
-                dur: expr.dur,                
+                dur: expr.dur                
             };
             res.push(new_expr);
             return expr.dur + time;
         }
         if(tag === 'seq'){
-            var t1 = innerCompile(expr.left, time, res);
-            var t2 = innerCompile(expr.right, t1, res);
+            t1 = innerCompile(expr.left, time, res);
+            t2 = innerCompile(expr.right, t1, res);
             return t2;
         }
-        var t1 = innerCompile(expr.left, time, res);
-        var t2 = innerCompile(expr.right, time, res);
-        return t1 > t2? t1 : t2;
+        if(tag === 'par'){
+            t1 = innerCompile(expr.left, time, res);
+            t2 = innerCompile(expr.right, time, res);
+            return t1 > t2? t1 : t2;
+        }
+        if(tag === 'repeat'){
+            t1 = time;
+            for(var i = 0; i < expr.count; i++){
+                t1 = innerCompile(expr.section, t1, res);
+            }
+            return t1;
+        }
     }
     var res = []
     innerCompile(musxpr, 0, res);
@@ -99,6 +118,16 @@ var playMUS = function(expr) {
     return playNOTE(compile(expr));
 };
 
+// http://nathansuniversity.com/music13.html
+function convertPitch(pitch: string): number {
+    //sample: c4 => 60
+    var map = {
+        C: 0,
+        D: 2,
+        B: 11
+    };
+    return 12 + 12 * parseInt(pitch[1]) + map[pitch[0]];
+}
 
 
 // ------------- test --------------
@@ -114,4 +143,4 @@ var melody_mus =
          right: { tag: 'note', pitch: 'f4', dur: 250 } } };
 
 var res = compile(melody2_mus);
-console.log(res);
+// console.log(res);
